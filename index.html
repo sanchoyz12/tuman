@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>Затуманилось: Лабиринт Смыслов</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&family=Inter:wght@300;400;600&display=swap"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/0.160.0/three.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #05070a;
+            --accent-color: #8b949e;
+            --text-color: #f0f6fc;
+            --glass-bg: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --fog-color: rgba(255, 255, 255, 0.05);
+            --gold-accent: #d4af37;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            color: var(--text-color);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: fixed;
+        }
+
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+        }
+
+        #fog-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .particles {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            background: #fff;
+            border-radius: 50%;
+            opacity: 0.1;
+            filter: blur(1px);
+            animation: float 20s infinite linear;
+            will-change: transform;
+        }
+
+        @keyframes float {
+            0% {
+                transform: translate3d(0, 0, 0);
+            }
+
+            50% {
+                transform: translate3d(50px, -100px, 0);
+            }
+
+            100% {
+                transform: translate3d(0, 0, 0);
+            }
+        }
+
+        main {
+            position: relative;
+            z-index: 10;
+            width: 95%;
+            max-width: 850px;
+            text-align: center;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            padding: 1rem 0;
+        }
+
+        .header {
+            margin-bottom: min(5vh, 2rem);
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 2s ease forwards;
+            flex-shrink: 0;
+        }
+
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1.8rem, 8vw, 4rem);
+            font-weight: 700;
+            letter-spacing: -1px;
+            margin-bottom: 0.3rem;
+            background: linear-gradient(180deg, #fff 30%, #484f58 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .subtitle {
+            font-size: clamp(0.6rem, 2.5vw, 0.85rem);
+            color: var(--accent-color);
+            font-style: italic;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        #game-container {
+            position: relative;
+            min-height: 400px;
+            height: auto;
+            max-height: 75vh;
+            padding: clamp(1.2rem, 6vw, 3rem);
+            background: var(--glass-bg);
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 40px 100px -20px rgba(0, 0, 0, 0.8);
+            overflow-y: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            width: 100%;
+        }
+
+        #game-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .content-reveal {
+            opacity: 0;
+            transform: translate3d(0, 5px, 0);
+            transition: opacity 1.2s ease, transform 0.8s ease;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .content-reveal.visible {
+            opacity: 1;
+            transform: translate3d(0, 0, 0);
+        }
+
+        .text-content {
+            font-family: 'Playfair Display', serif;
+            font-size: clamp(1rem, 4vw, 1.4rem);
+            line-height: 1.5;
+            margin-bottom: 1.5rem;
+            font-weight: 400;
+            color: #d1d5da;
+            text-align: left;
+            position: relative;
+        }
+
+        .choices {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            width: 100%;
+        }
+
+        .btn {
+            background: rgba(255, 255, 255, 0.02);
+            border: 1px solid var(--glass-border);
+            color: #8b949e;
+            padding: 0.8rem 1rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            font-size: clamp(0.7rem, 3vw, 0.85rem);
+            transition: all 0.3s ease;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 48px;
+        }
+
+        .btn:hover,
+        .btn:active {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        #fog-overlay {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 20px;
+            z-index: 100;
+            cursor: crosshair;
+            transition: opacity 1.2s ease;
+            touch-action: none;
+        }
+
+        .instruction {
+            margin-top: 1rem;
+            font-size: 0.65rem;
+            color: var(--accent-color);
+            opacity: 0.4;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .stats {
+            position: fixed;
+            top: env(safe-area-inset-top, 1rem);
+            left: 0;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-color);
+            z-index: 100;
+            padding: 0.5rem 1rem;
+        }
+
+        .stat-item {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 0.35rem 0.7rem;
+            border-radius: 100px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+        }
+
+        .stat-item span {
+            color: #fff;
+            font-weight: 600;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 600px) {
+            .choices {
+                grid-template-columns: 1fr;
+            }
+
+            main {
+                justify-content: flex-start;
+                padding-top: 4rem;
+            }
+
+            #game-container {
+                padding: 1.25rem;
+                min-height: 450px;
+            }
+
+            .header {
+                margin-bottom: 1rem;
+            }
+        }
+
+        .sound-toggle {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--glass-border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .sound-toggle:hover {
+            background: rgba(255, 255, 255, 0.1);
+            transform: scale(1.1);
+        }
+
+        .sound-toggle svg {
+            width: 20px;
+            height: 20px;
+            fill: var(--accent-color);
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="bg-canvas"></canvas>
+    <canvas id="fog-canvas"></canvas>
+    <div id="particles" class="particles"></div>
+    <audio id="bg-audio" src="13963.mp3" loop></audio>
+
+    <div class="stats">
+        <div class="stat-item">Экспертность: <span id="stat-dushnost">0</span>%</div>
+        <div class="stat-item">Вдохновение: <span id="stat-subjectivity">0</span>%</div>
+    </div>
+
+    <main>
+        <div class="header">
+            <h1>Затуманилось</h1>
+            <p class="subtitle">Путешествие в мир возможностей Вики Тумановой</p>
+        </div>
+
+        <div id="game-container">
+            <canvas id="fog-overlay"></canvas>
+
+            <div id="screen-content" class="content-reveal">
+                <div class="text-content" id="main-text">
+                    Мир — это лабиринт возможностей. Вика говорит: «Иногда всё, что нужно — это просто открыть закрытую
+                    дверь». Готовы ли вы начать свой путь к свету сквозь туман?
+                </div>
+                <div class="choices" id="choice-buttons"></div>
+            </div>
+
+            <div class="instruction" id="footer-instruction">Развейте туман, чтобы увидеть скрытое</div>
+        </div>
+    </main>
+
+    <div id="sound-toggle" class="sound-toggle" title="Toggle Sound">
+        <svg id="sound-icon" viewBox="0 0 24 24">
+            <path
+                d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.9 7-4.6 7-8.77s-3-7.87-7-8.77zM3 9v6h4l5 5V4L7 9H3z" />
+        </svg>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('fog-canvas');
+        const ctx = canvas.getContext('2d');
+        const overlay = document.getElementById('fog-overlay');
+        const overlayCtx = overlay.getContext('2d');
+        const gameContainer = document.getElementById('game-container');
+        const screenContent = document.getElementById('screen-content');
+        const mainText = document.getElementById('main-text');
+        const choiceButtons = document.getElementById('choice-buttons');
+        const instruction = document.getElementById('footer-instruction');
+        const particlesContainer = document.getElementById('particles');
+        const soundToggle = document.getElementById('sound-toggle');
+        const soundIcon = document.getElementById('sound-icon');
+
+        let dushnost = 0;
+        let subjectivity = 0;
+        let dpr = window.devicePixelRatio || 1;
+
+        function scaleCanvas(c, context, width, height) {
+            const dpr = window.devicePixelRatio || 1;
+            c.width = Math.floor(width * dpr);
+            c.height = Math.floor(height * dpr);
+            context.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+        function triggerHaptic(type) {
+            if (!navigator.vibrate) return;
+            switch (type) {
+                case 'light': navigator.vibrate(10); break;
+                case 'medium': navigator.vibrate(30); break;
+                case 'success': navigator.vibrate([10, 30, 10]); break;
+                case 'tick': navigator.vibrate(5); break;
+            }
+        }
+
+        function initParticles() {
+            particlesContainer.innerHTML = '';
+            const count = window.innerWidth < 600 ? 25 : 50;
+            for (let i = 0; i < count; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                const size = Math.random() * 2 + 1;
+                p.style.width = size + 'px';
+                p.style.height = size + 'px';
+                p.style.left = Math.random() * 100 + '%';
+                p.style.top = Math.random() * 100 + '%';
+                p.style.animationDuration = (Math.random() * 15 + 10) + 's';
+                p.style.animationDelay = (Math.random() * 5) + 's';
+                particlesContainer.appendChild(p);
+            }
+        }
+
+        // --- Background Music Controller ---
+        class AmbientAudio {
+            constructor() {
+                this.audio = document.getElementById('bg-audio');
+                this.isPlaying = false;
+                this.isInitialized = false;
+            }
+
+            init() {
+                if (this.isInitialized) return;
+                this.isInitialized = true;
+                this.audio.volume = 0.4;
+            }
+
+            toggle() {
+                this.init();
+                if (this.isPlaying) {
+                    this.audio.pause();
+                    this.isPlaying = false;
+                    soundIcon.innerHTML = '<path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.9 7-4.6 7-8.77s-3-7.87-7-8.77zM3 9v6h4l5 5V4L7 9H3z"/>';
+                } else {
+                    this.audio.play().catch(e => console.log("Audio play blocked", e));
+                    this.isPlaying = true;
+                    soundIcon.innerHTML = '<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4-.9 7-4.6 7-8.77s-3-7.87-7-8.77z"/>';
+                }
+            }
+        }
+
+        const ambient = new AmbientAudio();
+        soundToggle.onclick = () => ambient.toggle();
+
+        let fogParticles = [];
+        function initBackgroundFog() {
+            scaleCanvas(canvas, ctx, window.innerWidth, window.innerHeight);
+            fogParticles = [];
+            const count = window.innerWidth < 600 ? 15 : 25;
+            for (let i = 0; i < count; i++) {
+                fogParticles.push({
+                    x: Math.random() * window.innerWidth,
+                    y: Math.random() * window.innerHeight,
+                    radius: Math.random() * 300 + 150,
+                    dx: (Math.random() - 0.5) * 0.3,
+                    dy: (Math.random() - 0.5) * 0.3,
+                    alpha: Math.random() * 0.15
+                });
+            }
+        }
+
+        // --- WebGL Background Shader ---
+        let bgScene, bgCamera, bgRenderer, bgMesh, bgMaterial;
+        function initBgShader() {
+            const bgCanvas = document.getElementById('bg-canvas');
+            bgRenderer = new THREE.WebGLRenderer({ canvas: bgCanvas, antialias: true });
+            bgRenderer.setPixelRatio(window.devicePixelRatio);
+            bgRenderer.setSize(window.innerWidth, window.innerHeight);
+
+            bgScene = new THREE.Scene();
+            bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+            const vertexShader = `
+                varying vec2 vUv;
+                void main() {
+                    vUv = uv;
+                    gl_Position = vec4(position, 1.0);
+                }
+            `;
+
+            const fragmentShader = `
+                uniform float time;
+                uniform vec2 resolution;
+                varying vec2 vUv;
+
+                // Simple simplex-like noise
+                vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
+                float snoise(vec2 v){
+                    const vec4 C = vec4(0.211324865405187, 0.366025403784439,
+                            -0.577350269189626, 0.024390243902439);
+                    vec2 i  = floor(v + dot(v, C.yy) );
+                    vec2 x0 = v -   i + dot(i, C.xx);
+                    vec2 i1;
+                    i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+                    vec4 x12 = x0.xyxy + C.xxzz;
+                    x12.xy -= i1;
+                    i = mod(i, 289.0);
+                    vec3 p = permute( permute( i.y + vec3(0.0, i1.y, 1.0 ))
+                        + i.x + vec3(0.0, i1.x, 1.0 ));
+                    vec3 m = max(0.5 - vec4(dot(x0,x0), dot(x12.xy,x12.xy),
+                        dot(x12.zw,x12.zw), 0.0), 0.0);
+                    m = m*m ;
+                    m = m*m ;
+                    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+                    vec3 h = abs(x) - 0.5;
+                    vec3 ox = floor(x + 0.5);
+                    vec3 a0 = x - ox;
+                    m *= 1.79284291400159 - 0.85373472095314 * ( a0*a0 + h*h );
+                    vec3 g;
+                    g.x  = a0.x  * x0.x  + h.x  * x0.y;
+                    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+                    return 130.0 * dot(m, g);
+                }
+
+                void main() {
+                    vec2 uv = vUv;
+                    float n = snoise(uv * 2.0 + time * 0.1);
+                    float n2 = snoise(uv * 4.0 - time * 0.05);
+                    
+                    vec3 color1 = vec3(0.02, 0.04, 0.1); // Deep Navy
+                    vec3 color2 = vec3(0.0, 0.82, 1.0) * 0.2; // Dim Cyan
+                    vec3 color3 = vec3(0.5, 0.0, 0.8) * 0.1; // Deep Purple
+
+                    vec3 finalColor = mix(color1, color2, n * 0.5 + 0.5);
+                    finalColor = mix(finalColor, color3, n2 * 0.3 + 0.3);
+                    
+                    // Add subtle vignette
+                    float dist = distance(uv, vec2(0.5));
+                    finalColor *= 1.0 - dist * 0.5;
+
+                    gl_FragColor = vec4(finalColor, 1.0);
+                }
+            `;
+
+            bgMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    time: { value: 0 },
+                    resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) }
+                },
+                vertexShader,
+                fragmentShader
+            });
+
+            const geometry = new THREE.PlaneGeometry(2, 2);
+            bgMesh = new THREE.Mesh(geometry, bgMaterial);
+            bgScene.add(bgMesh);
+        }
+
+        // Combined animation loop for WebGL background and 2D fog particles
+        function animate() {
+            requestAnimationFrame(animate);
+            const time = performance.now() * 0.001;
+
+            // WebGL Background Shader animation
+            if (bgMaterial) bgMaterial.uniforms.time.value = time;
+            if (bgRenderer) bgRenderer.render(bgScene, bgCamera);
+
+            // Existing 2D fog particles logic (from original animateFog)
+            ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+            fogParticles.forEach(p => {
+                p.x += p.dx; p.y += p.dy;
+                if (p.x < -p.radius) p.x = window.innerWidth + p.radius;
+                if (p.x > window.innerWidth + p.radius) p.x = -p.radius;
+                if (p.y < -p.radius) p.y = canvas.height + p.radius;
+                if (p.y > canvas.height + p.radius) p.y = -p.radius;
+
+                const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.radius);
+                grad.addColorStop(0, `rgba(200, 210, 255, ${p.alpha})`);
+                grad.addColorStop(1, 'rgba(200, 210, 255, 0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
+            });
+        }
+
+        function initOverlayFog() {
+            const rect = gameContainer.getBoundingClientRect();
+            scaleCanvas(overlay, overlayCtx, rect.width, rect.height);
+            overlayCtx.globalCompositeOperation = 'source-over';
+            overlayCtx.fillStyle = '#05070a';
+            overlayCtx.fillRect(0, 0, rect.width, rect.height);
+
+            for (let i = 0; i < 800; i++) {
+                overlayCtx.fillStyle = `rgba(255,255,255,${Math.random() * 0.015})`;
+                overlayCtx.beginPath();
+                overlayCtx.arc(Math.random() * rect.width, Math.random() * rect.height, Math.random() * 25, 0, Math.PI * 2);
+                overlayCtx.fill();
+            }
+
+            overlayCtx.fillStyle = "rgba(255,255,255,0.4)";
+            const isMobile = window.innerWidth < 600;
+            overlayCtx.font = `italic ${isMobile ? '18px' : '26px'} 'Playfair Display'`;
+            overlayCtx.textAlign = "center";
+
+            overlay.style.display = 'block';
+            overlay.style.opacity = '1';
+            instruction.style.opacity = '0.4';
+
+            if (isMobile) {
+                overlayCtx.fillText("Развейте туман", rect.width / 2, rect.height / 2 - 10);
+                overlayCtx.fillText("для продолжения...", rect.width / 2, rect.height / 2 + 15);
+            } else {
+                overlayCtx.fillText("Развейте туман для продолжения...", rect.width / 2, rect.height / 2);
+            }
+            overlayCtx.globalCompositeOperation = 'destination-out';
+        }
+
+        let isDrawing = false;
+        function draw(e) {
+            if (!isDrawing) return;
+            const r = overlay.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const x = clientX - r.left;
+            const y = clientY - r.top;
+            const radius = window.innerWidth < 600 ? 80 : 120;
+            const grad = overlayCtx.createRadialGradient(x, y, 0, x, y, radius);
+            grad.addColorStop(0, 'rgba(0,0,0,1)');
+            grad.addColorStop(1, 'rgba(0,0,0,0)');
+            overlayCtx.fillStyle = grad;
+            overlayCtx.beginPath();
+            overlayCtx.arc(x, y, radius, 0, Math.PI * 2);
+            overlayCtx.fill();
+            triggerHaptic('tick');
+            checkClearance();
+        }
+
+        function checkClearance() {
+            const rect = overlay.getBoundingClientRect();
+            const imageData = overlayCtx.getImageData(0, 0, rect.width * dpr, rect.height * dpr);
+            const pixels = imageData.data;
+            let transparent = 0;
+            for (let i = 3; i < pixels.length; i += 100) {
+                if (pixels[i] === 0) transparent++;
+            }
+            const cleared = (transparent / (pixels.length / 100)) * 100;
+            if (cleared > 5) screenContent.classList.add('visible');
+            if (cleared > 25) {
+                overlay.style.opacity = '0';
+                setTimeout(() => {
+                    overlay.style.display = 'none';
+                    instruction.style.opacity = '0';
+                }, 800);
+            }
+        }
+
+        overlay.addEventListener('mousedown', () => {
+            isDrawing = true;
+            if (!ambient.isPlaying) ambient.toggle();
+        });
+        window.addEventListener('mouseup', () => isDrawing = false);
+        overlay.addEventListener('mousemove', draw);
+        overlay.addEventListener('touchstart', (e) => {
+            isDrawing = true;
+            if (!ambient.isPlaying) ambient.toggle();
+            draw(e);
+        }, { passive: false });
+        overlay.addEventListener('touchend', () => isDrawing = false);
+        overlay.addEventListener('touchmove', (e) => { draw(e); e.preventDefault(); }, { passive: false });
+
+        const storySegments = {
+            start: {
+                text: "Привет! Я — Вика Туманова. Пиарщик, трудоголик, путешественник. Моя жизнь — это лабиринт смыслов, где каждое событие — это либо лимон, из которого нужно сделать джус, либо маяк, указывающий путь. С чего начнём наше восхождение?",
+                choices: [
+                    { text: "PR & Лидерство: Создать идеальную команду", next: "pr_1", d: 10, s: 0 },
+                    { text: "Маршруты: От Балтийских дюн до Белого моря", next: "tr_1", d: 5, s: 5 },
+                    { text: "Культура: Озборн, Пелевин и тайны Алисы", next: "bk_1", d: 5, s: 5 },
+                    { text: "Жизненный код: Мудрость предков и сила любви", next: "ws_1", d: 0, s: 10 }
+                ]
+            },
+
+            // --- PR PATH (Expanded + Deep Dives) ---
+            pr_1: {
+                text: "Вы на 'Мастерской новых медиа'. Вика говорит: 'PR должен подчиняться первому лицу'. Перед вами задача — собрать команду по книге 'Шесть гениев'. Кого выберете в первую очередь?",
+                choices: [
+                    { text: "Креаторов и Изобретателей (Концепт)", next: "pr_2_concept", d: 10, s: 10 },
+                    { text: "Настойчивых и Поддержку (Реализация)", next: "pr_2_real", d: 15, s: 5 }
+                ]
+            },
+            pr_2_concept: {
+                text: "Идеи бьют ключом, но 'надо вчера' уже наступило. Вы сталкиваетесь с сопротивлением консерваторов. Как убеждаем?",
+                choices: [
+                    { text: "Через цифры и KPI (Душно, но верно)", next: "pr_2_convince", d: 20, s: 0 },
+                    { text: "Через яркие образы и метафоры", next: "pr_2_convince", d: 5, s: 20 }
+                ]
+            },
+            pr_2_convince: {
+                text: "Консерваторы притихли. Теперь — выход на федеральный уровень. Жизнь подкидывает лимоны в виде дедлайнов. Что будем делать?",
+                choices: [
+                    { text: "Оперативно превращать их во вкусный джус", next: "pr_3", d: 5, s: 20 },
+                    { text: "Вычитать чаты и согласовать релизы", next: "pr_3", d: 20, s: 0 }
+                ]
+            },
+            pr_2_real: {
+                text: "Команда работает как часы, но не хватает вдохновения. Вика вспоминает лекции Общества 'Знание'. Нужно привлечь аудиторию, которая ждет смыслов.",
+                choices: [
+                    { text: "Заголовок: 'Приходите поумнеть. Дуракам скидка 50%'", next: "pr_2_hype", d: 15, s: 15 },
+                    { text: "Серьёзный доклад о медиаграмотности", next: "pr_2_hype", d: 25, s: -5 }
+                ]
+            },
+            pr_2_hype: {
+                text: "Зал полон. Но один скептик спрашивает: 'А в чем ваш личный код доступа к успеху?'.",
+                choices: [
+                    { text: "В умении видеть социальный лифт для каждого", next: "pr_3", d: 15, s: 20 },
+                    { text: "В строгом соблюдении этики чиновника", next: "pr_3", d: 25, s: 5 }
+                ]
+            },
+            pr_3: {
+                text: "Кризис! 'Информационная война' в разгаре. Нас внесли в санкции. Вика: 'Значит, всё делаем правильно!'. Команда в панике. Как успокоим?",
+                choices: [
+                    { text: "Изучаем 'Диалог о фейках' и ищем аналоги", next: "pr_4", d: 20, s: 5 },
+                    { text: "Творим информационные чудеса на виражах", next: "pr_4", d: 10, s: 25 }
+                ]
+            },
+            pr_4: {
+                text: "ПМЭФ. Встреча с ИИ-Телемосту. Машина предлагает протокол, где всё холодно и расчетливо. Но Вика знает: 'ИИ — это инструмент, смысл — за человеком'. Как дополним протокол?",
+                choices: [
+                    { text: "Добавим человечности и эмпатии", next: "pr_4_human", d: 5, s: 25 },
+                    { text: "Усилим структуру и логику процесса", next: "pr_4_logic", d: 25, s: 5 }
+                ]
+            },
+            pr_4_human: {
+                text: "Теплота ваших слов сработала лучше любого алгоритма. К вам подходит федеральный министр. 'Нам нужны такие бадди'.",
+                choices: [
+                    { text: "Станем 'Бадди месяца' для системы", next: "pr_5", d: 15, s: 15 }
+                ]
+            },
+            pr_4_logic: {
+                text: "Министр впечатлен четкостью. 'Наконец-то адекватный пиар'. Вы на пороге назначения.",
+                choices: [
+                    { text: "Возглавим PR-департамент губернатора", next: "pr_5", d: 30, s: -5 }
+                ]
+            },
+            pr_5: {
+                text: "Вы на 'Знание.Наука'. Министры в зале, лекторы жгут. 'Инвестиции в науку — это база'. Вика шепчет: 'Это про будущее'. Как вы видите это будущее?",
+                choices: [
+                    { text: "Как царство технологий и порядка", next: "act2_eval_redirect", d: 15, s: 0 },
+                    { text: "Как мир безграничного творчества", next: "act2_eval_redirect", d: 0, s: 15 }
+                ]
+            },
+
+            // --- TRAVEL PATH (Expanded + Deep Dives) ---
+            tr_1: {
+                text: "Калининград. 770 лет. 'Здесь дождь — это культурный код'. Маяк в Заливино светит сквозь туман. Местные говорят про 'Зелёный огонёк Гэтсби'. Куда идем за смыслом?",
+                choices: [
+                    { text: "В Светлогорск — за тишиной и янтарем", next: "tr_2_baltic", d: 5, s: 15 },
+                    { text: "В Рязань — считать грибы с глазами", next: "tr_2_ryazan", d: 10, s: 10 }
+                ]
+            },
+            tr_2_baltic: {
+                text: "Шум волн. Вика: 'Калининград — это область-трофей, но и место силы'. Филиал Третьяковки — 8 лет от мечты до реальности. Какова цена созидания?",
+                choices: [
+                    { text: "Дисциплина и годы труда", next: "tr_2_effort", d: 25, s: 5 },
+                    { text: "Вера в мечту и полет фантазии", next: "tr_2_effort", d: 5, s: 25 }
+                ]
+            },
+            tr_2_effort: {
+                text: "Созидание требует всего тебя. Вы смотрите на закат. Впереди — суровый Север. Вы готовы сменить приморский бриз на ледники?",
+                choices: [
+                    { text: "Да, испытания закаляют дух", next: "tr_3", d: 15, s: 15 }
+                ]
+            },
+            tr_2_ryazan: {
+                text: "Рязань. Столица ВДВ и родина Есенина. Вика открывает тайну: 'Макс Фактор начинал здесь!'. Готовы ли вы найти свой грим в этой истории или будем прыгать с парашютом?",
+                choices: [
+                    { text: "Изучать биографию Факторовича", next: "tr_3", d: 20, s: 5 },
+                    { text: "Искать вдохновение в пешеходных улочках", next: "tr_3", d: 5, s: 20 }
+                ]
+            },
+            tr_3: {
+                text: "Архангельск. Северная Двина. Вы в цеху Поморского коча. Глеб Плетнев показывает судно. 'Всё русское, даже движок!'. Это про корни. Чьи корни вы ищете?",
+                choices: [
+                    { text: "Корни великой державы (Флот)", next: "tr_3_north", d: 25, s: 10 },
+                    { text: "Свои собственные, в тишине Севера", next: "tr_3_north", d: 5, s: 25 }
+                ]
+            },
+            tr_3_north: {
+                text: "Белое море сурово. Лодка режет волну. Вика говорит: 'Тут понимаешь, что человек — песчинка, но с волей'. Переносимся резко — Самара, Жигули.",
+                choices: [
+                    { text: "К волжским берегам и раздолью", next: "tr_4", d: 10, s: 20 }
+                ]
+            },
+            tr_4: {
+                text: "Самара. Стадион, набережная, пивняк 'На дне'. Вика: 'Здесь ощущение, что я дома'. Но всё такое 'уставшее'. Почему упадок соседствует с величием?",
+                choices: [
+                    { text: "Не хватает хозяйской руки (Стратег)", next: "tr_4_plan", d: 25, s: 5 },
+                    { text: "В этом и есть прелесть 'Аленького цветка'", next: "tr_4_soul", d: 5, s: 25 }
+                ]
+            },
+            tr_4_plan: {
+                text: "Вы чертите генплан развития на салфетке. Вика улыбается. 'Нам такие кадры нужны на Итурупе'.",
+                choices: [
+                    { text: "На Курилы! Где начинается Россия", next: "tr_5", d: 20, s: 10 }
+                ]
+            },
+            tr_4_soul: {
+                text: "Вы просто пьете чай с видом на Волгу. Вика цитирует Бодрова: 'Главное — наполнить дни любовью'.",
+                choices: [
+                    { text: "Любовь — мой единственный компас", next: "tr_5", d: 0, s: 30 }
+                ]
+            },
+            tr_5: {
+                text: "Сахалин и Курилы. Остров Шумшу. 3 сентября — конец войны. Вика: 'Никто не забыт'. Вы стоите у ржавых танков. Какую память мы несем в будущее?",
+                choices: [
+                    { text: "Уроки истории как предостережение", next: "tr_6", d: 25, s: 5 },
+                    { text: "Гордость за подвиг и светлую печаль", next: "tr_6", d: 10, s: 25 }
+                ]
+            },
+            tr_6: {
+                text: "Пятигорск. Центр 'Машук'. Здесь куется будущее страны. Вика: 'Гештальт закрыт, икона найдена'. Вы стоите на вершине, глядя на Эльбрус. Кем вы стали после всех миль?",
+                choices: [
+                    { text: "Мастером меридианов и смыслов", next: "act2_eval_redirect", d: 10, s: 15 }
+                ]
+            },
+
+            // --- CULTURE PATH (Expanded + Deep Dives) ---
+            bk_1: {
+                text: "Мистика и Культура. 'Оззи Озборн умер', — читаете вы. А ведь он и в коляске был мощнее молодых. В чём секрет артистов старой школы?",
+                choices: [
+                    { text: "В неисчерпаемой энергии зрителя", next: "bk_2", d: 5, s: 20 },
+                    { text: "В умении играть свою музыку, вопреки моде", next: "bk_2", d: 15, s: 15 }
+                ]
+            },
+            bk_2: {
+                text: "Книжная полка. Литвак и его 'Психологическое айкидо'. Вика: 'Если умный сказал — согласись'. Это маневр. Готовы ли вы уступить в малом ради большой цели?",
+                choices: [
+                    { text: "Да, стратегия важнее эго", next: "bk_2_psych", d: 25, s: 5 },
+                    { text: "Нет, истина дороже маневров", next: "bk_2_psych", d: 5, s: 25 }
+                ]
+            },
+            bk_2_psych: {
+                text: "Ваша гибкость (или твердость) привела вас к вопросу о 'Лолите' Набокова. Для Вики это — ода пошлости или гротеск? Мы конструируем себя из осколков чужих текстов. Какую книгу добавим в свой фундамент?",
+                choices: [
+                    { text: "Хармель 'Забвение пахнет корицей'", next: "bk_3", d: 10, s: 20 },
+                    { text: "Трамп 'Искусство сделки'", next: "bk_3", d: 25, s: 0 }
+                ]
+            },
+            bk_3: {
+                text: "Кинотеатр. 'Формула-1' с Брэдом Питтом. Вика: 'Почему все ищут мораль в драйве?'. А вы? Что ищете на экране?",
+                choices: [
+                    { text: "Рёв моторов и чистый адреналин", next: "bk_3_drive", d: 15, s: 10 },
+                    { text: "Мистический Франкенштейн Дель Торо", next: "bk_3_myst", d: 5, s: 25 }
+                ]
+            },
+            bk_3_drive: {
+                text: "Драйв захлестывает. Но жизнь — не гонка. Или всё-таки гонка?",
+                choices: [
+                    { text: "Гонка за личным превосходством", next: "bk_4", d: 20, s: 0 },
+                    { text: "Путешествие вглубь себя", next: "bk_4", d: 0, s: 20 }
+                ]
+            },
+            bk_3_myst: {
+                text: "Мрак и красота монстра. Вика говорит: 'Мы все немного монстры своего дизайна'.",
+                choices: [
+                    { text: "Принять свою тьму и свет", next: "bk_4", d: 10, s: 25 }
+                ]
+            },
+            bk_4: {
+                text: "Мастерская Новых Медиа. Виза на швейцарском паспорте: 'В ультрафиолете виден ландшафт'. Вика: 'Это уровень детализации, к которому надо стремиться'. Какое качество вы цените в людях превыше всего?",
+                choices: [
+                    { text: "Адекватность и скорость (Технократ)", next: "bk_5", d: 25, s: 5 },
+                    { text: "Способность удивляться (Художник)", next: "bk_5", d: 5, s: 25 }
+                ]
+            },
+            bk_5: {
+                text: "Музыкальный патефон. Группа 'Звери' поёт про поезда. Вика мечтает о рояле. Под какой аккорд зафиналим этот поход в культуру?",
+                choices: [
+                    { text: "Под хор Сретенского монастыря (Вечность)", next: "bk_6", d: 5, s: 30 },
+                    { text: "Под Пятую симфонию Бетховена (Триумф)", next: "bk_6", d: 25, s: 10 }
+                ]
+            },
+            bk_6: {
+                text: "Вы одолели 40 книг за сезон. 'Дикий робот' научился чувствовать. А вы научились?",
+                choices: [
+                    { text: "Видеть бриллианты в куче песка", next: "act2_eval_redirect", d: 10, s: 15 }
+                ]
+            },
+
+            // --- WISDOM/FAMILY PATH (Expanded + Deep Dives) ---
+            ws_1: {
+                text: "Семья — это опора. Дедушка-машинист водил составы, а папа всегда даст мудрый совет. 'Если сломалась душа — тихо полечит'. Какое наследство вам дороже?",
+                choices: [
+                    { text: "Путь по рельсам (Дисциплина)", next: "ws_2_train", d: 20, s: 5 },
+                    { text: "Путь души (Любовь)", next: "ws_2_soul", d: 5, s: 25 }
+                ]
+            },
+            ws_2_train: {
+                text: "Ритм колес. Перемещаешь сотни судеб. Вика: 'Когда пиар утомит — хочу водить метро'. Готовы ли вы к ответственности за чужой путь?",
+                choices: [
+                    { text: "Да, порядок — это жизнь", next: "ws_3", d: 25, s: 5 },
+                    { text: "Нет, я ищу магию в случайных встречах", next: "ws_3", d: 5, s: 20 }
+                ]
+            },
+            ws_2_soul: {
+                text: "37 лет свадьбы родителей — муслиновая верность. 'Любить несмотря ни на что'. Вика говорит: 'Это и есть настоящий героизм'. В чём секрет?",
+                choices: [
+                    { text: "В умении прощать (Мягкость)", next: "ws_3", d: 0, s: 25 },
+                    { text: "В общих целях (Твердость)", next: "ws_3", d: 20, s: 10 }
+                ]
+            },
+            ws_3: {
+                text: "Здоровье. 'Офисный живот' атакует. Вика: 'Сутулость сдавливает диафрагму'. Пора встать и сделать производственную зарядку! Или поплакать?",
+                choices: [
+                    { text: "10 минут физкультуры (Воля)", next: "ws_4", d: 20, s: 5 },
+                    { text: "Принять ванну с солью (Чувства)", next: "ws_4", d: 0, s: 25 }
+                ]
+            },
+            ws_4: {
+                text: "Омск. Родина Егора Летова. Вы нашли фотографа Обороны. Вика: 'Всё крутится на 10 лет назад'. Оглядываясь назад, о чем вы жалеете?",
+                choices: [
+                    { text: "О потерянном времени на глупости", next: "ws_5", d: 25, s: 5 },
+                    { text: "О словах любви, что не были сказаны", next: "ws_5", d: 0, s: 30 }
+                ]
+            },
+            ws_5: {
+                text: "Философия паники по Бёрнхарду. 'Живите настоящим, а не прошлым'. Какова ваша главная цель сейчас?",
+                choices: [
+                    { text: "Стать опорой для близких и общества", next: "act2_eval_redirect", d: 15, s: 10 },
+                    { text: "Найти свой внутренний покой", next: "act2_eval_redirect", d: 5, s: 20 }
+                ]
+            },
+
+            // --- ACT 2 INTROS (Conditional Branching) ---
+            act2_intro_system: {
+                resetFog: true,
+                text: "Первый акт позади. Ваши решения создали образ профессионала, ценящего структуру. Вика Туманова: «Вы — человек-система. Это база, на которой мы построим нечто грандиозное». Готовы ли вы сделать следующий шаг в лабиринте меридианов?",
+                choices: [{ text: "К восхождению (Акт 2)", next: "checkpoint_1", d: 5, s: 0 }]
+            },
+            act2_intro_creative: {
+                resetFog: true,
+                text: "Первый этап пройден. Вами движет вдохновение и поиск смыслов. Вика улыбается: «В вас живет истинный художник. Мир — это чистый холст, и сейчас мы добавим на него новые краски». Готовы?",
+                choices: [{ text: "Продолжить полет (Акт 2)", next: "checkpoint_1", d: 0, s: 5 }]
+            },
+            act2_intro_balance: {
+                resetFog: true,
+                text: "Вы успешно преодолели первый рубеж, сохранив удивительное равновесие между разумом и сердцем. Вика: «Вы идете по лезвию ножа, и это восхищает. Баланс — ваше тайное оружие». Вперед, во второй акт?",
+                choices: [{ text: "В путь (Акт 2)", next: "checkpoint_1", d: 5, s: 5 }]
+            },
+
+            // --- ACT 2 EXPANSION (Divergence Nodes) ---
+            checkpoint_1: {
+                resetFog: true,
+                text: "Второй акт. Все меридианы сходятся. Вы уже не тот человек, что был в начале. Вика Туманова подмигивает: «Наше дело благое. Победа будет за нами». Но теперь туман сгущается, требуя не просто выбора пути, а выбора СУТЬ. Куда направим основной фокус?",
+                choices: [
+                    { text: "В жесткую структуру и государственную волю", next: "act2_structure_1", d: 15, s: -10 },
+                    { text: "В поиск метафизического смысла и творчество", next: "act2_spirit_1", d: -10, s: 15 },
+                    { text: "В балансировку интересов и дипломатию", next: "act2_balance_1", d: 10, s: 10 },
+                    { text: "В полный отказ от рамок и систем", next: "act2_chaos_1", d: -15, s: -15 }
+                ]
+            },
+
+            // --- PATH: SYSTEM/STRUCTURE (4 Nodes + Expansion) ---
+            act2_structure_1: {
+                text: "Вы входите в 'Дом Советов'. Лифты гудят, как в книгах Дика. Вика Туманова: «Здесь куется порядок. Но порядок — это не только KPI, это дисциплина мысли». Вы на пороге внедрения новой системы управления. Что в приоритете?",
+                choices: [
+                    { text: "Четкая иерархия и субординация (+ Душность)", next: "act2_structure_2", d: 15, s: -5 },
+                    { text: "Автоматизация и цифровой след", next: "act2_structure_2", d: 10, s: 5 }
+                ]
+            },
+            act2_structure_2: {
+                resetFog: true,
+                text: "Бюрократический лабиринт сгущается. Инструкции на 40 страниц. Вика: «Если умный сказал — согласись, но сделай адекватно». Перед вами выбор: наказать за отклонение от регламента или допустить исключение?",
+                choices: [
+                    { text: "Регламент — это закон (Строгость)", next: "mid_structure", d: 20, s: -10 },
+                    { text: "Человеческий фактор важнее (Гибкость)", next: "mid_structure", d: 5, s: 15 }
+                ]
+            },
+            mid_structure: {
+                text: "Экватор системы. Показатели экспертности растут, но холод металла холодит душу. Как вы себя чувствуете внутри этого механизма?",
+                choices: [
+                    { text: "Я — часть великой машины", next: "act2_structure_3", d: 15, s: -15 },
+                    { text: "Я — мозг, направляющий машину", next: "act2_structure_3", d: 10, s: 10 }
+                ]
+            },
+            act2_structure_3: {
+                resetFog: true,
+                text: "Вы на заседании Госсовета. Манифест 'Служение и Порядок' готов. Вика шепчет: «Наше дело благое. Победа будет за нами». Какое финальное требование вы впишете в кодекс будущего?",
+                choices: [
+                    { text: "Безоговорочное служение государству", next: "final_climb", d: 30, s: -20 },
+                    { text: "Служение через профессионализм и этику", next: "final_climb", d: 15, s: 15 }
+                ]
+            },
+
+            // --- PATH: SPIRIT/CREATIVE (4 Nodes + Expansion) ---
+            act2_spirit_1: {
+                text: "Вы стоите на крыше питерской многоэтажки. Внизу — огни, вверху — тишина. Вика: «Смысл в том, чтобы не искать смысл, а чувствовать его кожей». В наушниках играет инди-рок. Что вы ищете в этом моменте?",
+                choices: [
+                    { text: "Чистую эмоцию и вдохновение (+ Субъективность)", next: "act2_spirit_2", d: -10, s: 15 },
+                    { text: "Скрытый символизм и метафоры", next: "act2_spirit_2", d: 5, s: 10 }
+                ]
+            },
+            act2_spirit_2: {
+                resetFog: true,
+                text: "Мир превращается в текст Пелевина. Граница реальности размыта. Вика: «Мы все — персонажи чьего-то сна. Какой сон выберешь ты сегодня?». Перед вами холст и кисть.",
+                choices: [
+                    { text: "Нарисовать хаос и свободу", next: "mid_spirit", d: -15, s: 20 },
+                    { text: "Нарисовать гармонию и свет", next: "mid_spirit", d: 5, s: 15 }
+                ]
+            },
+            mid_spirit: {
+                text: "Середина пути по облакам. Вы чувствуете невероятную свободу, но мир вокруг кажется всё менее реальным. Как вернемся на землю?",
+                choices: [
+                    { text: "Через любовь к конкретным людям", next: "act2_spirit_3", d: 0, s: 20 },
+                    { text: "Через горькую иронию и сарказм", next: "act2_spirit_3", d: 10, s: 10 }
+                ]
+            },
+            act2_spirit_3: {
+                resetFog: true,
+                text: "Мерцание звезд на фоне Балтийского моря. Вика шепчет: «Красота спасет мир, если мир захочет спастись». Как вы зафиксируете это состояние духа?",
+                choices: [
+                    { text: "В тихом, вечном молчании", next: "final_climb", d: -20, s: 20 },
+                    { text: "В громком творческом манифесте", next: "final_climb", d: -5, s: 30 }
+                ]
+            },
+
+            // --- PATH: BALANCE/MASTER (4 Nodes + Expansion) ---
+            act2_balance_1: {
+                text: "Вы на мосту между министерством и галереей. Вика подмигивает: «Ты как икона в горах — про религию и про эстетику одновременно». Как удержим этот баланс?",
+                choices: [
+                    { text: "Через дисциплину творчества", next: "act2_balance_2", d: 10, s: 10 },
+                    { text: "Через творческий подход к дисциплине", next: "act2_balance_2", d: 10, s: 10 }
+                ]
+            },
+            act2_balance_2: {
+                resetFog: true,
+                text: "Ситуация требует и четкого протокола, и эмпатии. Вика: «Будь адекватным, но не теряй лицо». Как вы разрешите конфликт сторон?",
+                choices: [
+                    { text: "Найти рациональный компромисс", next: "mid_balance", d: 15, s: 5 },
+                    { text: "Услышать боли каждого (+ Эмпатия)", next: "mid_balance", d: 5, s: 15 }
+                ]
+            },
+            mid_balance: {
+                text: "Точка покоя. Вы на вершине Машука, видите оба склона. Чего в вас сейчас больше — стратега или художника?",
+                choices: [
+                    { text: "Я — мост между ними (Баланс)", next: "act2_balance_3", d: 10, s: 10 },
+                    { text: "Я иду своим уникальным путём", next: "act2_balance_3", d: 5, s: 5 }
+                ]
+            },
+            act2_balance_3: {
+                resetFog: true,
+                text: "Последний перевал. Вика: «Самое сложное — не победить, а остаться собой в моменте победы». Как вы подведете итог своего пути?",
+                choices: [
+                    { text: "Честность перед собой — это база", next: "final_climb", d: 15, s: 15 },
+                    { text: "Служение истине превыше всего", next: "final_climb", d: 10, s: 20 }
+                ]
+            },
+
+            // --- PATH: CHAOS/GHOST (4 Nodes + Expansion) ---
+            act2_chaos_1: {
+                text: "Вы бросили всё. Телефон в море, галстук — в урну. Вы в Омске, ищете следы Летова или в Калининграде на заброшенном маяке. Вика: «Иногда нужно всё разрушить, чтобы увидеть истинное». Что вы видите в этой пустоте?",
+                choices: [
+                    { text: "Абсолютный покой и тишину", next: "act2_chaos_2", d: -15, s: -15 },
+                    { text: "Веселый карнавал случайностей", next: "act2_chaos_2", d: 5, s: 10 }
+                ]
+            },
+            act2_chaos_2: {
+                resetFog: true,
+                text: "Мир вокруг начинает 'глитчить'. Социальные роли стираются. Вика: «В этом хаосе больше правды, чем в любом отчете». Вам предлагают вернуться в систему на ваших условиях. Примете?",
+                choices: [
+                    { text: "Никаких условий. Только свобода", next: "mid_chaos", d: -20, s: -20 },
+                    { text: "Вернусь как 'Агент Хаоса' внутри", next: "mid_chaos", d: 10, s: 5 }
+                ]
+            },
+            mid_chaos: {
+                text: "Точка невозврата. Вы — призрак в системе. Вас никто не видит, но вы видите всех. Как распорядитесь этой анонимностью?",
+                choices: [
+                    { text: "Стану созерцателем (Тень)", next: "act2_chaos_3", d: -10, s: -10 },
+                    { text: "Стану трикстером (Игра)", next: "act2_chaos_3", d: 5, s: 15 }
+                ]
+            },
+            act2_chaos_3: {
+                resetFog: true,
+                text: "Последний заброшенный маяк. Вика шепчет: «Туман — это твой новый дом. Здесь нет правил, есть только ты». Ваш последний жест перед финалом?",
+                choices: [
+                    { text: "Уйти в полную невидимость", next: "final_climb", d: -30, s: -30 },
+                    { text: "Скинуть прощальный мем", next: "final_climb", d: 5, s: 5 }
+                ]
+            },
+
+            final_climb: {
+                text: "Облака рассеиваются. Последние шаги по склону Машука (или по палубе коча). Вика Туманова улыбается вам: 'Вы прошли этот лабиринт. Помните: жизнь — это не только пиар или маршруты, это вы сами в каждом моменте'. Кем вы выходите из этого тумана?",
+                choices: [
+                    { text: "Узнать свою истинную роль", next: "calculate_ending", d: 0, s: 0 }
+                ]
+            },
+
+            // --- 6 Distinct Endings ---
+            end_nerd: {
+                text: "ФИНАЛ: ГОСУДАРСТВЕННЫЙ СТРАТЕГ. Ваша экспертность зашкаливает. Вы — мозг 'Знания', архитектор PR-кампаний федерального масштаба. Ваш девиз: 'Адекватность и скорость'. Вы ведете составы судеб по четким маршрутам к великой цели. Вика: 'На таких, как вы, держится страна! Жму руку'.",
+                choices: [{ text: "Начать новый цикл свершений", next: "start", d: 0, s: 0 }]
+            },
+            end_artist: {
+                text: "ФИНАЛ: ВДОХНОВИТЕЛЬ ЦИФРОВОЙ ЭПОХИ. Ваше сердце полно любви, а голова — метафор Пелевина. Вы превращаете лимоны в джус, а серые будни — в магический трип. Для вас жизнь — это музыка и свет маяка. Вика: 'Вы сделали этот мир шире и ярче. Спасибо за полет!'.",
+                choices: [{ text: "Увидеть новый счастливый сон", next: "start", d: 0, s: 0 }]
+            },
+            end_master: {
+                text: "ФИНАЛ: МАСТЕР МЕРИДИАНОВ. Вы нашли идеальный баланс. Вы — адекватный пиарщик с душой поэта. Умеете и протокол составить, и икону в горах найти. Вы открыли все закрытые двери и научились жить настоящим. Вика: 'Вы — мой лучший бадди и соратник. Вместе мы — сила!'.",
+                choices: [{ text: "Продолжить путь к истине", next: "start", d: 0, s: 0 }]
+            },
+            end_ghost: {
+                text: "ФИНАЛ: ЧЕЛОВЕК-ТЕНЬ. Вы предпочли остаться в тени, фиксируя мир в моменте. Как фотограф Омской обороны, вы знаете больше всех, но молчите. Ваш путь — созерцание и поиск «неслучайных случайностей». Вика: 'Иногда тишина громче слов. Ваша глубина поражает и заставляет задуматься'.",
+                choices: [{ text: "Обрести новую форму", next: "start", d: 0, s: 0 }]
+            },
+            end_north: {
+                text: "ФИНАЛ: ХРАНИТЕЛЬ МАЯКА. Вы вернулись к истокам. Северные вёсла, мудрость отца и честные поступки — вот ваш компас. Вы нашли покой в простой правде жизни, вдали от шума медиа. Вика: 'Здесь, на краю земли, начинается настоящий смысл. Будь счастлив, батя бы тобой гордился'.",
+                choices: [{ text: "Вернуться к людям со светом", next: "start", d: 0, s: 0 }]
+            },
+            end_chaos: {
+                text: "ФИНАЛ: АГЕНТ ХОРОШЕГО ХАОСА. Вы нарушили все правила и победили. Ваш мир — это калейдоскоп из 40 книг, смешных заголовков и любви к животным. Вы смеетесь в лицо кризисам и дедлайнам. Вика смеется вместе с вами: 'Всё будет хорошо, я привыкла к таким вищам! В этом хаосе есть жизнь'.",
+                choices: [{ text: "Устроить новый весёлый хаос", next: "start", d: 0, s: 0 }]
+            }
+        };
+
+        function renderSegment(id) {
+            if (id === 'act2_eval_redirect') {
+                const diff = dushnost - subjectivity;
+                if (diff > 15) id = 'act2_intro_system';
+                else if (diff < -15) id = 'act2_intro_creative';
+                else id = 'act2_intro_balance';
+            }
+
+            if (id === 'calculate_ending') {
+                const diff = dushnost - subjectivity; // + if D heavy, - if S heavy
+                const sum = dushnost + subjectivity;
+
+                // Sector Dominance Logic
+                if (sum >= 140 && Math.abs(diff) <= 30) {
+                    id = 'end_master'; // High Balanced: Master
+                } else if (sum <= 65) {
+                    id = 'end_ghost'; // Low Balanced: Ghost
+                } else if (diff >= 45) {
+                    id = 'end_nerd'; // Pure Dushnost: Strategist
+                } else if (diff <= -45) {
+                    id = 'end_artist'; // Pure Subjectivity: Artist
+                } else if (dushnost > subjectivity && dushnost >= 70) {
+                    id = 'end_north'; // Mixed D-Heavy: North Seeker
+                } else {
+                    id = 'end_chaos'; // Default / Hybrid: Agent of Chaos
+                }
+            }
+
+            const segment = storySegments[id];
+
+            screenContent.style.opacity = '0';
+            screenContent.style.transform = 'translate3d(0, 20px, 0)';
+
+            setTimeout(() => {
+                triggerHaptic('medium');
+                mainText.innerText = segment.text;
+                choiceButtons.innerHTML = '';
+                segment.choices.forEach(c => {
+                    const btn = document.createElement('button');
+                    btn.className = 'btn';
+                    btn.innerText = c.text;
+                    btn.onclick = () => {
+                        triggerHaptic('light');
+                        if (id.startsWith('end_') && c.next === 'start') { dushnost = 0; subjectivity = 0; }
+                        else {
+                            const prevSum = dushnost + subjectivity;
+                            dushnost = Math.min(100, Math.max(0, dushnost + (c.d || 0)));
+                            subjectivity = Math.min(100, Math.max(0, subjectivity + (c.s || 0)));
+                            if (Math.abs((dushnost + subjectivity) - prevSum) >= 20) triggerHaptic('success');
+                        }
+                        updateStats(); renderSegment(c.next);
+                    };
+                    choiceButtons.appendChild(btn);
+                });
+                screenContent.style.opacity = '1';
+                screenContent.style.transform = 'translate3d(0, 0, 0)';
+            }, 800);
+        }
+
+        function updateStats() {
+            document.getElementById('stat-dushnost').innerText = dushnost;
+            document.getElementById('stat-subjectivity').innerText = subjectivity;
+        }
+
+        window.onload = () => {
+            renderSegment('start');
+            initParticles();
+            initBackgroundFog();
+            initBgShader();
+            animate();
+            initOverlayFog();
+        };
+
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => {
+                initBackgroundFog();
+                if (bgRenderer) {
+                    bgRenderer.setSize(window.innerWidth, window.innerHeight);
+                    bgMaterial.uniforms.resolution.value.set(window.innerWidth, window.innerHeight);
+                }
+                if (overlay.style.display !== 'none') initOverlayFog();
+            }, 250);
+        });
+    </script>
+</body>
+
+</html>
